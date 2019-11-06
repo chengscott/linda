@@ -7,7 +7,7 @@
 #include <string>
 #define MAX_CLIENT 100
 
-enum DataType { String, Number, Variable };
+enum class DataType { String, Number, Variable };
 struct Data {
   std::string str;
   DataType type;
@@ -53,13 +53,16 @@ int main() {
           line_tuple.clear();
           while (ss >> token) {
             Data data{.str = token};
-            if (token[0] == '"') {
-              data.type = String;
-            } else if (token[0] == '?') {
-              data.type = Variable;
+            const char t = token[0];
+            if (t == '"') {
+              data.type = DataType::String;
+            } else if ('0' <= t && t <= '9') {
+              data.type = DataType::Number;
+            } else if (cmd != "out" && t == '?') {
+              data.type = DataType::Variable;
               data.str = token.substr(1);
             } else {
-              data.type = Number;
+              data.type = DataType::Variable;
             }
             line_tuple.emplace_back(data);
           }
@@ -67,9 +70,10 @@ int main() {
             // remove variables
             auto &mvar = mvars[client_id];
             for (auto &tuple : line_tuple) {
-              if (tuple.type == Variable) {
-                tuple.str = mvar[tuple.str].str;
-                tuple.type = mvar[tuple.str].type;
+              if (tuple.type == DataType::Variable) {
+                const Data &var = mvar[tuple.str];
+                tuple.str = var.str;
+                tuple.type = var.type;
               }
             }
             // insert into tuple space
@@ -107,10 +111,32 @@ int main() {
             continue;
           bool equal = true;
           for (size_t j = 0; j < lsize; ++j) {
-            // TODO: check variable
-            if (tuple[j] == line_tuple[j]) {
+            if (line_tuple[j].type == DataType::Variable)
+              continue;
+            if (tuple[j] != line_tuple[j]) {
+              equal = false;
               break;
             }
+          }
+          if (equal) {
+            fout << '(';
+            for (size_t j = 0; j < lsize; ++j) {
+              // assign variable
+              if (line_tuple[j].type == DataType::Variable) {
+                mvars[tid][line_tuple[j].str] = tuple[j];
+              }
+              // output tuple
+              fout << tuple[j].str;
+              if (j + 1 != lsize) {
+                fout << ',';
+              }
+            }
+            fout << ')' << std::endl;
+            // remove if "in"
+            if (cmd == "in") {
+              tspace.erase(tspace.begin() + i);
+            }
+            break;
           }
         }
         //}
