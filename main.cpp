@@ -31,8 +31,8 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T> &rhs) {
 }
 
 int main() {
-  // std::istream &fin = std::cin;
-  std::ifstream fin("testcase/test.txt");
+  std::istream &fin = std::cin;
+  // std::ifstream fin("testcase/test.txt");
 
   int threads;
   fin >> threads >> std::ws;
@@ -83,21 +83,16 @@ int main() {
               data.type = DataType::Variable;
               data.str = token.substr(1);
             } else {
-              data.type = DataType::Variable;
+              // lookup variable
+              const Data &var = tvars[token];
+              data.type = var.type;
+              data.str = var.str;
             }
             line_tuple.emplace_back(data);
           }
           bool output;
           if (cmd == "out") {
             output = true;
-            // lookup variables
-            for (auto &tuple : line_tuple) {
-              if (tuple.type == DataType::Variable) {
-                const Data &var = tvars[tuple.str];
-                tuple.str = var.str;
-                tuple.type = var.type;
-              }
-            }
             // check for waiting
             client_id = 0;
             size_t ttime = MAX_TIME;
@@ -134,7 +129,7 @@ int main() {
               for (size_t i = 0; i < tspace.size(); ++i) {
                 auto &tuple = tspace[i];
                 if (tuple == line_tuple) {
-                  found = output = true;
+                  found = true;
                   // store variables
                   for (size_t j = 0; j < lsize; ++j) {
                     if (line_tuple[j].type == DataType::Variable) {
@@ -146,6 +141,7 @@ int main() {
                   twaits[client_id] = Tuple();
                   // remove if "in"
                   if (cmd == "in") {
+                    output = true;
                     tspace.erase(tspace.begin() + i);
                   }
                   break;

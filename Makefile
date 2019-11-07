@@ -16,7 +16,7 @@ $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) < testcase/test.txt
 
 format: $(SRC)
 	clang-format -i $(SRC)
