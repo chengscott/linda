@@ -1,14 +1,25 @@
-all: linda
+CXX ?= clang++
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S), Darwin)
+CXXFLAGS += -Xpreprocessor -fopenmp -lomp
+else
+CXXFLAGS = -fopenmp
+endif
+CXXFLAGS += -std=c++11
+SRC = main.cpp
+TARGET = linda
 
-linda: main.cpp
-	clang++ -Xpreprocessor -fopenmp -lomp main.cpp -o linda -std=c++11
+.PHONY: all run format clean
+all: $(TARGET)
 
-run: linda
-	rm -rf *.txt
-	./linda
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) $< -o $@
 
-format: main.cpp
-	clang-format -i main.cpp
+run: $(TARGET)
+	./$(TARGET)
+
+format: $(SRC)
+	clang-format -i $(SRC)
 
 clean:
-	rm -rf linda *.txt
+	rm -rf $(TARGET) *.txt
