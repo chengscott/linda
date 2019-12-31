@@ -5,6 +5,7 @@ import sys
 import time
 import numpy as np
 import cv2
+import pyarrow as pa
 
 P_MEAN = [0.406, 0.456, 0.485]
 P_STD = [0.225, 0.224, 0.229]
@@ -37,7 +38,8 @@ def handle(cid, conn, addr):
         name = conn.recv(1024).decode('utf-8')
         out = cv2.VideoWriter(name, cv2.VideoWriter_fourcc(*'mp4v'), 60,
                               (1280, 720))
-        f = open(f'{cid}.txt', 'w')
+        fs = pa.hdfs.connect('master', 9000)
+        f = fs.open(f'/{cid}.txt', 'wb')
         found = None
         for c in itertools.count():
             data_len = conn.recv(16)
@@ -49,7 +51,7 @@ def handle(cid, conn, addr):
             if c % 10 == 0:
                 found = detect(frame)
             if found:
-                f.write(f'{c}\n')
+                f.write(f'{c}\n'.encode('utf-8'))
             #cv2.imwrite(f'f{c}.jpg', frame)
             out.write(frame)
         f.close()
