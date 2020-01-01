@@ -1,3 +1,4 @@
+import io
 import itertools
 import multiprocessing
 import os
@@ -6,6 +7,7 @@ import sys
 import time
 import numpy as np
 import cv2
+import pyarrow as pa
 
 P_MEAN = [0.406, 0.456, 0.485]
 P_STD = [0.225, 0.224, 0.229]
@@ -24,7 +26,7 @@ def detect(frame):
     return found
 
 
-def recv_size(conn, size, buffer_size=32767):
+def recv_size(conn, size, buffer_size=32768):
     data = b''
     while len(data) < size:
         cursize = min(size - len(data), buffer_size)
@@ -32,16 +34,18 @@ def recv_size(conn, size, buffer_size=32767):
     return data
 
 
-def handle_video(fname, hname, buffer_size=32767):
+def handle_video(fname, hname, buffer_size=32768):
     f = open(fname, 'rb')
-    h = open(hname, 'wb')
+    fs = pa.hdfs.connect('master', 9000)
+    h = fs.open(hname, 'wb', buffer_size, default_block_size=1048576)
     data = f.read(buffer_size)
     while len(data):
         h.write(data)
+        h.flush()
         data = f.read(buffer_size)
     f.close()
     h.close()
-    print('Write', fname, 'done')
+    print('Write', hname, 'done')
 
 
 def handle(cid, conn, addr):
@@ -55,10 +59,11 @@ def handle(cid, conn, addr):
                                               args=(fifo_name, name),
                                               daemon=True)
         hdfs_writer.start()
-        out = cv2.VideoWriter(fifo_name, cv2.VideoWriter_fourcc(*'h264'), 60,
+        out = cv2.VideoWriter(fifo_name, cv2.VideoWriter_fourcc(*'mp4v'), 60,
                               (1280, 720))
         print('Create worker', hdfs_writer.name)
-        f = open(f'{cid}.txt', 'w')
+        fs = pa.hdfs.connect('master', 9000)
+        f = fs.open(f'{os.path.splitext(name)[0]}.txt', 'wb', buffer_size=4, default_block_size=1048576)
         found = None
         for c in itertools.count():
             data_len = conn.recv(16)
@@ -70,7 +75,8 @@ def handle(cid, conn, addr):
             if c % 10 == 0:
                 found = detect(frame)
             if found:
-                f.write(f'{c}\n')
+                f.write(f'{c}\n'.encode('utf-8'))
+                f.flush()
             #cv2.imwrite(f'f{c}.jpg', frame)
             out.write(frame)
         f.close()
